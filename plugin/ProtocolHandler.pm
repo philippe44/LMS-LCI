@@ -18,6 +18,7 @@ use Slim::Utils::Log;
 use Slim::Utils::Prefs;
 use Slim::Utils::Errno;
 use Slim::Utils::Cache;
+use Slim::Networking::Async::HTTP;
 
 use IO::Socket::Socks;
 use IO::Socket::Socks::Wrapped;
@@ -281,49 +282,31 @@ sub getMessage {
 
 sub getMasterM3U {
 	my ($cb, $url) = @_;
-
-#=comment	
-	my $ua = LWP::UserAgent->new;
-	$ua->agent("AppleCoreMedia/1.0.0.10B400 (iPod; U; CPU OS 6_1_5 like Mac OS X; fr_fr)");
-	my $req = HTTP::Request->new(GET => $url);
-	my $res = $ua->request($req);
-	return undef if !$res->is_success;
 	
-	# get it again after redirect
-	my $base = $res->base();	
-	$base =~ /(.*\/)/;
-	$base = $1;
+	my $http = Slim::Networking::Async::HTTP->new;
+	my $request = HTTP::Request->new( GET => $url );
+	$request->header( 'User-Agent' => "AppleCoreMedia/1.0.0.10B400 (iPod; U; CPU OS 6_1_5 like Mac OS X; fr_fr)" );		
 	
-	my $m3u = $res->content;
-	my $slaveUrl;
-	my $bw;
-				
-	#$log->debug("master M3U: $m3u");
-				
-	for my $item ( split (/#EXT-X-STREAM-INF:/, $m3u) ) {
-		next if $item !~ m/BANDWIDTH=(\d+)([^\n]+)\n(.*)/s;
-			if (!defined $bw || $1 < $bw) {
-				$bw = $1;
-				$slaveUrl = $3;
-			} 	
-	}
-				
-	$log->info("slave M3U url: $base" . "$slaveUrl");
+	$url =~ /(.*\/)/;	
+	my $base = $1;
 	
-	getFragmentList($cb, $base . $slaveUrl);
-#=cut	
-	
-=comment	
-	$req = Plugins::LCI::AsyncSocks->new ( 
-		sub {
-			my $m3u = shift->content;
+	# need to obtain the redirect URI first
+	$http->send_request( {
+		request     => $request,
+		
+		onRedirect  => sub {
+			$base = shift->uri;
+			$base =~ /(.*\/)/;	
+			$base = $1;
+			$log->debug("redirected base: $base");
+		},
+		
+		onBody  => sub {
+			my $m3u = shift->response->content;
 			my $slaveUrl;
 			my $bw;
 				
-			$url =~ /(.*\/)/;
-			my $base = $1;
-				
-			$log->info("master M3U: $m3u");
+			$log->debug("master M3U: $m3u");
 				
 			for my $item ( split (/#EXT-X-STREAM-INF:/, $m3u) ) {
 				next if $item !~ m/BANDWIDTH=(\d+)([^\n]+)\n(.*)/s;
@@ -334,17 +317,12 @@ sub getMasterM3U {
 			}
 				
 			$log->info("slave M3U url: $base" . "$slaveUrl");
-				
+	
 			getFragmentList($cb, $base . $slaveUrl);
-				
-		},	
-			
-		sub {
-			$cb->(undef);
-		}
-					
-	)->get( $url, 'User-Agent' => 'AppleCoreMedia/1.0.0.10B400 (iPod; U; CPU OS 6_1_5 like Mac OS X; fr_fr)' );
-=cut	
+		},
+		
+		onError     => sub { $cb->( undef ); },
+	} );
 }	
 
 
