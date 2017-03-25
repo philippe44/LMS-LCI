@@ -276,7 +276,7 @@ sub getMessage {
 	$req->post( 'http://api.wat.tv/services/Delivery', 
 			    'User-Agent' => 'MYTF1 4.1.2 rv:60010000.384 (iPod touch; iPhone OS 6.1.5; fr_FR)',
 			    'Content-Type' => 'application/x-www-form-urlencoded',
-			    $content );
+			    'Content' => $content );
 }
 
 

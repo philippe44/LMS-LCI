@@ -51,9 +51,9 @@ sub get {
 		my $response = $self->{s_ua}->get(@_);
 	
 		if ( $response->is_success ) {
-			$self->{cb}($response) if $response->is_success;
+			$self->{cb}($response);
 		} else {	
-			$self->{ecb}(undef) if !$response->is_success;
+			$self->{ecb}(undef);
 		}	
 		
 	} else {
@@ -65,19 +65,22 @@ sub get {
 
 sub post {
 	my $self = shift;
-				
+	
 	if ( $prefs->get('socks') ) {				
 		my $response = $self->{s_ua}->post(@_);
 	
 		if ( $response->is_success ) {
-			$self->{cb}($response) if $response->is_success;
+			$self->{cb}($response);
 		} else {	
-			$self->{ecb}(undef) if !$response->is_success;
+			$self->{ecb}(undef);
 		}	
 		
 	} else {
-	
-		$self->{ua}->post(@_);
+		
+		# not the same format between LWP and AsyncHTTP ...
+		my @vars = grep { $_ ne 'Content' } @_;
+			
+		$self->{ua}->post(@vars);
 		
 	}
 }
