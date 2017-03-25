@@ -1,0 +1,15 @@
+﻿0.21.1
+ - Pluzz.png renamed in lower case for Linux
+ - pluzz.png image 400x400
+ - time offset had a language logic error that prevent repositioning
+
+0.21
+ - Artist & Album name were missing
+
+0.20
+ - Add socks support for geolock handling
+ - Episode cache can be disabled (useful when switching on socks)
+ 
+0.11
+ - optimize buffering
+ - get metadata in all cases to support RecentlyPlayed
