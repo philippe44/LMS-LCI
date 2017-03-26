@@ -153,28 +153,33 @@ sub addChannels {
 	
 	Plugins::LCI::API::search( $page, sub {
 		my $items = [];
+		my @imageList;
 		my $result = shift;
 		my $data = $result->{page}->{data};
 		$data = first { $_->{key} eq 'main' } @{$data};
 		$data = first { $_->{key} eq 'emission-milestone' } @{$data->{data}};
 		
 		for my $entry (@{$data->{data}->{elementList}}) {
+			my $image = getImageMin( $entry->{pictures}->{elementList} );
 							
 			push @$items, {
 				name  => $entry->{text},
 				type  => 'playlist',
 				url   => \&searchEpisodes,
-				#image => $entry->{pictures}->{elementList}[0]->{dpi}[0]->{url},
-				image => getIcon(),
+				image 		=> $image,
+				#image => getIcon(),
 				passthrough 	=> [ { link => $entry->{link} } ],
 				favorites_url  	=> "lciplaylist://link=$entry->{link}",
 				favorites_type 	=> 'audio',
 			};
 			
+			push @imageList, $image;
 		}
 		
 		@$items = sort {lc($a->{name}) cmp lc($b->{name})} @$items;
 		
+		#getImages(@imageList);
+				
 		$cb->( $items );
 	
 	} );	
@@ -190,6 +195,7 @@ sub searchEpisodes {
 	Plugins::LCI::API::search( $page, sub {
 		my $result = shift;
 		my $items = [];
+		my @imageList;
 		my $text = $result->{page}->{title};
 												
 		$text =~ m/([^:]+)/;
@@ -212,22 +218,61 @@ sub searchEpisodes {
 						
 		for my $entry (@list) {
 			my ($date) =  ($entry->{date} =~ m/(\S*)T/);
+			my $image = getImageMin( $entry->{pictures}->{elementList} );
+			
+			push @imageList, $image;
 								
 			push @$items, {
 				name 		=> $entry->{title},
 				type 		=> 'playlist',
 				on_select 	=> 'play',
 				play 		=> "lci:$entry->{link}&artist=$artist&album=$album",
-				#image 		=> $entry->{pictures}->{elementList}[0]->{dpi}[0]->{url},
+				#image 		=> $image,
 				image 		=> getIcon(),
 			};
-			
 		}
+		
+		#getImages(@imageList);
 		
 		$cb->( $items );
 		
 	} );
 }
+
+sub getImageMin {
+	my ($list) = @_;
+	
+	# We have an  images array. Each image array contains different height. 
+	# Then each height contains different dpi. Need to take smallest of all.
+	# They might already be sorted, but can't count on that.
+	
+	my @images = sort { $a->{height} <=> $b->{height} } @{$list};
+	my @dpi = sort { $a->{size} <=> $b->{size} } @{$images[0]->{dpi}};
+	my $url = $dpi[0]->{url};
+	
+	$log->debug($url);		
+	
+	return $url;
+}
+
+=comment
+sub getImages {
+	my (@list) = @_;
+	
+	# We have a channel array of images array. Each image array contains different
+	# height. Then each heigh contains different dpi. Need ptp take smallest of all
+	# They might already be sorted, but can't count on that.
+	
+	for my $item (@list) {
+		my @images = sort { $a->{height} <=> $b->{height} } @{$item};
+		my @dpi = sort { $a->{size} <=> $b->{size} } @{$images[0]->{dpi}};
+		my $url = $dpi[0]->{url};
+		
+		$log->error($url);		
+	}
+	
+}
+=cut
 
 
 1;
