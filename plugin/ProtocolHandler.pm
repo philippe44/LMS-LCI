@@ -22,21 +22,16 @@ use Slim::Networking::Async::HTTP;
 
 use IO::Socket::Socks;
 use IO::Socket::Socks::Wrapped;
+
 use Plugins::LCI::AsyncSocks;
 use Plugins::LCI::MPEGTS;
+use Plugins::LCI::API;
 
-# streaming states
-use constant SYNCHRO     => 1;
-use constant PIDPAT	     => 2;
-use constant PIDPMT	     => 3;
-use constant AUDIO	     => 4;
+use constant DEFAULT_CACHE_TTL => 24 * 3600;
 
 my $log   = logger('plugin.LCI');
 my $prefs = preferences('plugin.LCI');
 my $cache = Slim::Utils::Cache->new;
-
-use constant API_URL => "http://api.lci.fr";
-use constant API_URL_GLOBAL => 'http://webservices.francetelevisions.fr';
 
 Slim::Player::ProtocolHandlers->registerHandler('lci', __PACKAGE__);
 
@@ -63,7 +58,7 @@ sub new {
 		${*$self}{'song'}    = $args->{'song'};
 		${*$self}{'vars'} = {         # variables which hold state for this instance: (created by "open")
 			'inBuf'       => undef,   #  buffer of received flv packets/partial packets
-			'state'       => SYNCHRO, #  expected protocol fragment
+			'state'       => Plugins::LCI::MPEGTS::SYNCHRO, #  expected protocol fragment
 			'index'  	  => $index,  #  current index in fragments
 			'fetching'    => 0,		  #  flag for waiting chunk data
 			'pos'		  => 0,		  #  position in the latest input buffer
@@ -160,7 +155,7 @@ sub getNextTrack {
 	my ($class, $song, $successCb, $errorCb) = @_;
 	my $url 	 = $song->track()->url;
 	my $client   = $song->master();
-	my $link	 = $class->getLink($url);
+	my $link	 = getLink($url);
 	
 	$log->info("getNextTrack : $url (link: $link)");
 	
@@ -193,9 +188,9 @@ sub getNextTrack {
 
 sub getFragments {
 	my ($cb, $link) = @_;
-	my $url = API_URL . "/pages/$link?device=ios-smartphone" ;
+	my $url = Plugins::LCI::API::API_URL . "/pages/$link?device=ios-smartphone" ;
 	my $params;
-		
+			
 	# get the watId	
 	Plugins::LCI::AsyncSocks->new ( 
 			sub {
@@ -369,56 +364,65 @@ sub suppressPlayersMessage {
 
 sub getMetadataFor {
 	my ($class, $client, $url, undef, $song) = @_;
-	my $icon = $class->getIcon();
-
-	return {	
-			type	=> 'LCI',
-			title	=> "LCI",
-			icon	=> $icon,
-			cover	=> $icon,
-	};
-}	
-=comment	
+	my $icon = getIcon();
+	my $cacheKey = md5_hex($url);
+	
 	main::DEBUGLOG && $log->debug("getmetadata: $url");
 			
-	my ($id, $channel, $program) = $class->getId($url);
-	return unless $id && $channel && $program;
-	
-	if (my $meta = $cache->get("pz:meta-$id")) {
+	if ( my $meta = $cache->get("lci:meta-$cacheKey") ) {
 		$song->track->secs($meta->{'duration'}) if $song;
 				
 		Plugins::LCI::Plugin->updateRecentlyPlayed({
 			url   => $url, 
-			name  => $meta->{_fulltitle} || $meta->{title}, 
+			name  => $meta->{title}, 
 			icon  => $meta->{icon},
 		});
 
-		main::DEBUGLOG && $log->debug("cache hit: $id");
-		
+		main::DEBUGLOG && $log->debug("cache hit: $url");
+			
 		return $meta;
 	}
 	
-	Plugins::LCI::API->searchEpisode( sub {
-		my $result = shift;
-		my $item = 	first { $_->{id_diffusion} eq $id } @{$result || []};
-						
-		$song->track->secs($item->{duree_reelle}) if $song;
+	my $page = '/pages/' . getLink($url);
+		
+	Plugins::LCI::API::search( $page, sub {
+		my $data = shift->{page}->{data};
+		$data = first { $_->{key} eq 'main' } @{$data};
+		$data = first { $_->{key} eq 'article-header-video' } @{$data->{data}};
+		$data = $data->{data};
+				
+		my $title = $data->{title} || '';
+		my $duration => $data->{video}->{duration};
+	
+		$url =~ m/&artist=([^&]*)&album=(.*)/;
+		my ($artist, $album) = ($1, $2);
+				
+		$cache->set("lci:meta-$cacheKey", 
+				{ title  => $title,
+				  icon 	 => '',
+				  cover  => '',
+				  #icon     => $entry->{pictures}->{elementList}[0]->{dpi}[0]->{url},
+				  #cover    => $entry->{pictures}->{elementList}[0]->{dpi}[0]->{url},
+				  duration => $data->{video}->{duration},
+				  artist   => $artist,
+				  album    => $album,
+				}, DEFAULT_CACHE_TTL ); 
+		
+		$song->track->secs($duration) if $song;
 				
 		if ($client) {
 			$client->currentPlaylistUpdateTime( Time::HiRes::time() );
 			Slim::Control::Request::notifyFromArray( $client, [ 'newmetadata' ] );
-		}	
-						
-	}, { channel => $channel, code_programme => $program } );
+		}			
+	} );		
 	
 	return {	
 			type	=> 'LCI',
 			title	=> "LCI",
 			icon	=> $icon,
 			cover	=> $icon,
-	};
+	}	
 }	
-=cut
 
 	
 sub getIcon {
@@ -429,9 +433,9 @@ sub getIcon {
 
 
 sub getLink {
-	my ($class, $url) = @_;
+	my ($url) = @_;
 
-	if ($url =~ m|lci:(.+)|) {
+	if ($url =~ m|lci:([^&]+)|) {
 		return $1;
 	}
 		

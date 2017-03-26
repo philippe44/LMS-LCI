@@ -15,10 +15,12 @@ use IO::Socket::Socks;
 
 use Data::Dumper;
 use Encode qw(encode decode);
+use Unicode::Normalize;
 
 use Slim::Utils::Strings qw(string cstring);
 use Slim::Utils::Prefs;
 use Slim::Utils::Log;
+use Slim::Web::ImageProxy;
 
 use Plugins::LCI::API;
 use Plugins::LCI::ProtocolHandler;
@@ -108,10 +110,15 @@ sub saveRecentlyPlayed {
 
 sub toplevel {
 	my ($client, $callback, $args) = @_;
-	
-	my $items = [ { name => cstring($client, 'PLUGIN_LCI_RECENTLYPLAYED'), image => getIcon(), url  => \&recentHandler, } ];
 		
-	addChannels($client, $callback, $args, $items);
+	addChannels($client, sub {
+			my $items = shift;
+			
+			push @$items, { name => cstring($client, 'PLUGIN_LCI_RECENTLYPLAYED'), image => getIcon(), url  => \&recentHandler };
+			
+			$callback->( $items );
+		}, $args
+	);
 }
 
 sub getIcon {
@@ -141,11 +148,11 @@ sub recentHandler {
 
 
 sub addChannels {
-	my ($client, $cb, $args, $items) = @_;
+	my ($client, $cb, $args) = @_;
 	my $page = "/pages/emissions/?type=other&filter=emissions-lci";
 	
 	Plugins::LCI::API::search( $page, sub {
-	
+		my $items = [];
 		my $result = shift;
 		my $data = $result->{page}->{data};
 		$data = first { $_->{key} eq 'main' } @{$data};
@@ -158,6 +165,7 @@ sub addChannels {
 				type  => 'playlist',
 				url   => \&searchEpisodes,
 				#image => $entry->{pictures}->{elementList}[0]->{dpi}[0]->{url},
+				image => getIcon(),
 				passthrough 	=> [ { link => $entry->{link} } ],
 				favorites_url  	=> "lciplaylist://link=$entry->{link}",
 				favorites_type 	=> 'audio',
@@ -182,6 +190,17 @@ sub searchEpisodes {
 	Plugins::LCI::API::search( $page, sub {
 		my $result = shift;
 		my $items = [];
+		my $text = $result->{page}->{title};
+												
+		$text =~ m/([^:]+)/;
+		my $album = $1 || '';
+		$album =~ s/^\s+|\s+$//g;
+		
+		$text =~ m/.+mission de([[:ascii:]]+)/;
+		my $artist = $1;
+		$artist =~ m/(.*)-/;
+		$artist = $1 || '';
+		$artist =~ s/^\s+|\s+$//g;
 		
 		my $data = $result->{page}->{data};
 		$data = first { $_->{key} eq 'main' } @{$data};
@@ -193,13 +212,14 @@ sub searchEpisodes {
 						
 		for my $entry (@list) {
 			my ($date) =  ($entry->{date} =~ m/(\S*)T/);
-						
+								
 			push @$items, {
 				name 		=> $entry->{title},
 				type 		=> 'playlist',
 				on_select 	=> 'play',
-				play 		=> "lci:$entry->{link}",
+				play 		=> "lci:$entry->{link}&artist=$artist&album=$album",
 				#image 		=> $entry->{pictures}->{elementList}[0]->{dpi}[0]->{url},
+				image 		=> getIcon(),
 			};
 			
 		}

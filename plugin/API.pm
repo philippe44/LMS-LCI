@@ -1,20 +1,19 @@
 package Plugins::LCI::API;
 
-#use strict;
+use strict;
 
 use Digest::MD5 qw(md5_hex);
 use JSON::XS::VersionOneAndTwo;
 use List::Util qw(min max first);
-
 use Data::Dumper;
-
-use constant API_URL => "http://api.lci.fr";
 
 use Slim::Utils::Cache;
 use Slim::Utils::Log;
 use Slim::Utils::Prefs;
 	
 use Plugins::LCI::AsyncSocks;
+
+use constant API_URL => "http://api.lci.fr";
 
 my $prefs = preferences('plugin.LCI');
 my $log   = logger('plugin.LCI');
