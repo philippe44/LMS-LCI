@@ -161,19 +161,20 @@ sub addChannels {
 		
 		for my $entry (@{$data->{data}->{elementList}}) {
 			my $image = getImageMin( $entry->{pictures}->{elementList} );
+			
+			push @imageList, $image if defined $image;
 							
 			push @$items, {
 				name  => $entry->{text},
 				type  => 'playlist',
 				url   => \&searchEpisodes,
-				image 		=> $image,
-				#image => getIcon(),
+				#image 		=> $image || getIcon(),
+				image => getIcon(),
 				passthrough 	=> [ { link => $entry->{link} } ],
 				favorites_url  	=> "lciplaylist://link=$entry->{link}",
 				favorites_type 	=> 'audio',
 			};
 			
-			push @imageList, $image;
 		}
 		
 		@$items = sort {lc($a->{name}) cmp lc($b->{name})} @$items;
@@ -219,15 +220,15 @@ sub searchEpisodes {
 		for my $entry (@list) {
 			my ($date) =  ($entry->{date} =~ m/(\S*)T/);
 			my $image = getImageMin( $entry->{pictures}->{elementList} );
-			
-			push @imageList, $image;
+						
+			push @imageList, $image if defined $image;
 								
 			push @$items, {
 				name 		=> $entry->{title},
 				type 		=> 'playlist',
 				on_select 	=> 'play',
 				play 		=> "lci:$entry->{link}&artist=$artist&album=$album",
-				#image 		=> $image,
+				#image 		=> $image || getIcon(),
 				image 		=> getIcon(),
 			};
 		}
@@ -241,6 +242,8 @@ sub searchEpisodes {
 
 sub getImageMin {
 	my ($list) = @_;
+	
+	return undef if !defined $list;
 	
 	# We have an  images array. Each image array contains different height. 
 	# Then each height contains different dpi. Need to take smallest of all.

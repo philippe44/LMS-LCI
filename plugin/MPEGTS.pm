@@ -6,8 +6,6 @@ use Data::Dumper;
 
 use Slim::Utils::Log;
 
-use Plugins::LCI::AsyncSocks;
-
 # streaming states
 use constant SYNCHRO     => 1;
 use constant PIDPAT	     => 2;

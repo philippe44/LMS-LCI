@@ -11,7 +11,7 @@ use Slim::Utils::Cache;
 use Slim::Utils::Log;
 use Slim::Utils::Prefs;
 	
-use Plugins::LCI::AsyncSocks;
+use Slim::Networking::Async::HTTP;
 
 use constant API_URL => "http://api.lci.fr";
 
@@ -33,7 +33,7 @@ sub search	{
 		return;
 	}
 
-	Plugins::LCI::AsyncSocks->new(
+	Slim::Networking::SimpleAsyncHTTP->new(
 	
 		sub {
 			my $response = shift;

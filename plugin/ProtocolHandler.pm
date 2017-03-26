@@ -20,10 +20,6 @@ use Slim::Utils::Errno;
 use Slim::Utils::Cache;
 use Slim::Networking::Async::HTTP;
 
-use IO::Socket::Socks;
-use IO::Socket::Socks::Wrapped;
-
-use Plugins::LCI::AsyncSocks;
 use Plugins::LCI::MPEGTS;
 use Plugins::LCI::API;
 
@@ -123,9 +119,9 @@ sub sysread {
 						
 		$log->info("fetching: $url");
 			
-		Plugins::Pluzz::AsyncSocks->new(
+		Slim::Networking::SimpleAsyncHTTP->new(
 			sub {
-				$v->{'inBuf'} = $_[0] = Plugins::Pluzz::AsyncSocks::contentRef($_[0]);
+				$v->{'inBuf'} = $_[0]->contentRef;
 				$v->{'fetching'} = 0;
 				$log->debug("got chunk length: ", length ${$v->{'inBuf'}});
 			},
@@ -192,7 +188,7 @@ sub getFragments {
 	my $params;
 			
 	# get the watId	
-	Plugins::LCI::AsyncSocks->new ( 
+	Slim::Networking::SimpleAsyncHTTP->new ( 
 			sub {
 				my $data = decode_json(shift->content);
 								
@@ -213,7 +209,7 @@ sub getFragments {
 	)->get($url);
 	
 	# get server timestamp
-	Plugins::LCI::AsyncSocks->new ( 
+	Slim::Networking::SimpleAsyncHTTP->new ( 
 			sub {
 				my $res = shift->content;
 			
@@ -240,7 +236,7 @@ sub getMessage {
 	return if !$params->{watId} || !$params->{timestamp};
 	
 	# okay, got what we need for next step
-	my $req = Plugins::LCI::AsyncSocks->new ( 
+	my $req = Slim::Networking::SimpleAsyncHTTP->new ( 
 		sub {
 			my $res = decode_json(shift->content);
 				
@@ -271,7 +267,7 @@ sub getMessage {
 	$req->post( 'http://api.wat.tv/services/Delivery', 
 			    'User-Agent' => 'MYTF1 4.1.2 rv:60010000.384 (iPod touch; iPhone OS 6.1.5; fr_FR)',
 			    'Content-Type' => 'application/x-www-form-urlencoded',
-			    'Content' => $content );
+			    $content );
 }
 
 
@@ -324,7 +320,7 @@ sub getMasterM3U {
 sub getFragmentList {
 	my ($cb, $url) = @_;
 	
-	Plugins::LCI::AsyncSocks->new ( 
+	Slim::Networking::SimpleAsyncHTTP->new ( 
 		sub {
 			my $fragmentList = shift->content;
 			my @fragments;
@@ -364,7 +360,7 @@ sub suppressPlayersMessage {
 
 sub getMetadataFor {
 	my ($class, $client, $url, undef, $song) = @_;
-	my $icon = getIcon();
+	my $image = Plugins::LCI::Plugin::getIcon();
 	my $cacheKey = md5_hex($url);
 	
 	main::DEBUGLOG && $log->debug("getmetadata: $url");
@@ -384,8 +380,9 @@ sub getMetadataFor {
 	}
 	
 	my $page = '/pages/' . getLink($url);
-		
+			
 	Plugins::LCI::API::search( $page, sub {
+		my @imageList;
 		my $data = shift->{page}->{data};
 		$data = first { $_->{key} eq 'main' } @{$data};
 		$data = first { $_->{key} eq 'article-header-video' } @{$data->{data}};
@@ -393,16 +390,20 @@ sub getMetadataFor {
 				
 		my $title = $data->{title} || '';
 		my $duration => $data->{video}->{duration};
+		my $image = Plugins::LCI::Plugin::getImageMin( $data->{pictures}->{elementList} );
+				
+		push @imageList, $image if defined $image;
+		#Plugins::LCI::Plugin::getImages(@imageList);
 	
 		$url =~ m/&artist=([^&]*)&album=(.*)/;
 		my ($artist, $album) = ($1, $2);
 				
 		$cache->set("lci:meta-$cacheKey", 
 				{ title  => $title,
-				  icon 	 => '',
-				  cover  => '',
-				  #icon     => $entry->{pictures}->{elementList}[0]->{dpi}[0]->{url},
-				  #cover    => $entry->{pictures}->{elementList}[0]->{dpi}[0]->{url},
+				  #icon 	 => $image || Plugins::LCI::Plugin::getIcon(),
+				  #cover  => $image || Plugins::LCI::Plugin::getIcon(),
+				  icon     => Plugins::LCI::Plugin::getIcon(),
+				  cover    => Plugins::LCI::Plugin::getIcon(),
 				  duration => $data->{video}->{duration},
 				  artist   => $artist,
 				  album    => $album,
@@ -419,19 +420,12 @@ sub getMetadataFor {
 	return {	
 			type	=> 'LCI',
 			title	=> "LCI",
-			icon	=> $icon,
-			cover	=> $icon,
+			icon	=> $image,
+			cover	=> $image,
 	}	
 }	
 
 	
-sub getIcon {
-	my ( $class, $url ) = @_;
-
-	return Plugins::LCI::Plugin->_pluginDataFor('icon');
-}
-
-
 sub getLink {
 	my ($url) = @_;
 
