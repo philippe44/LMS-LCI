@@ -11,7 +11,6 @@ use List::Util qw(min max first);
 
 use FindBin qw($Bin);
 use lib catdir($Bin, 'Plugins', 'LCI', 'lib');
-use IO::Socket::Socks;
 
 use Data::Dumper;
 use Encode qw(encode decode);
@@ -39,6 +38,7 @@ my $cache = Slim::Utils::Cache->new;
 
 $prefs->init({ 
 	recent => [], 
+	icons   => 1,
 });
 
 tie my %recentlyPlayed, 'Tie::Cache::LRU', 50;
@@ -159,10 +159,9 @@ sub addChannels {
 		$data = first { $_->{key} eq 'emission-milestone' } @{$data->{data}};
 		
 		for my $entry (@{$data->{data}->{elementList}}) {
-			my $image = getImageMin( $entry->{pictures}->{elementList} );
-			#$image = Slim::Web::ImageProxy::proxiedImage( $image, 1 );
-			#Slim::Web::ImageProxy->getImage($client, $image, undef, undef, undef, undef );
-			$image = undef;
+			my $image;
+			
+			$image = getImageMin( $entry->{pictures}->{elementList} ) if $prefs->get('icons');
 														
 			push @$items, {
 				name  => $entry->{text},
@@ -217,11 +216,10 @@ sub searchEpisodes {
 						
 		for my $entry (@list) {
 			my ($date) =  ($entry->{date} =~ m/(\S*)T/);
-			my $image = getImageMin( $entry->{pictures}->{elementList} );
-			#$image = Slim::Web::ImageProxy::proxiedImage( $image, 1 );
-			#Slim::Web::ImageProxy->getImage($client, $image, undef, undef, undef, undef );
-			$image = undef;
-						
+			my $image;
+			
+			$image = getImageMin( $entry->{pictures}->{elementList} ) if $prefs->get('icons');
+									
 			push @$items, {
 				name 		=> $entry->{title},
 				type 		=> 'playlist',

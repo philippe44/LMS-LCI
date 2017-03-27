@@ -12,6 +12,13 @@
 		<input name="pref_no_cache" type="checkbox" [% IF prefs.pref_no_cache %] checked [% END %]>
 	
 	[% END %]
+	
+	[% WRAPPER setting title="PLUGIN_LCI_ICONS" desc="PLUGIN_LCI_ICONS_DESC" %]
+
+		[% "PLUGIN_LCI_ENABLEICONS" | string %]
+		<input name="pref_icons" type="checkbox" [% IF prefs.pref_icons %] checked [% END %]>
+	
+	[% END %]
 		
 	</div>
 	

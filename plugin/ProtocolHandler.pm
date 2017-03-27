@@ -391,11 +391,10 @@ sub getMetadataFor {
 				
 		my $title = $data->{title} || '';
 		my $duration => $data->{video}->{duration};
-		my $image = Plugins::LCI::Plugin::getImageMin( $data->{pictures}->{elementList} );
-		#$image = Slim::Web::ImageProxy::proxiedImage( $image, 1 );
-		#Slim::Web::ImageProxy->getImage($client, $image, undef, undef, undef, undef );
-		$image = undef;
-				
+		my $image;
+		
+		$image = Plugins::LCI::Plugin::getImageMin( $data->{pictures}->{elementList} ) if $prefs->get('icons');
+		
 		$url =~ m/&artist=([^&]*)&album=(.*)/;
 		my ($artist, $album) = ($1, $2);
 				

@@ -17,7 +17,7 @@ sub page {
 }
 
 sub prefs {
-	return (preferences('plugin.LCI'), qw(socks socks_server socks_port));
+	return (preferences('plugin.LCI'), qw(no_cache icons));
 }
 
 sub handler {
