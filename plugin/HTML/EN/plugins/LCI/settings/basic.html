@@ -5,18 +5,6 @@
 	[% END %]
 
 	<div class="prefDesc">
-	[% WRAPPER setting title="PLUGIN_LCI_SOCKS" desc="PLUGIN_LCI_SOCKS_DESC" %]
-
-		[% "PLUGIN_LCI_USESOCKS" | string %]
-		<input name="pref_socks" type="checkbox" [% IF prefs.pref_socks %] checked [% END %]>
-		
-		&nbsp[% "PLUGIN_LCI_SOCKSSERVER" | string %]
-		<input type="text" class="stdedit" name="pref_socks_server" id="pref_socks_server" value="[% prefs.pref_socks_server %]" size="10">
-		
-		[% "PLUGIN_LCI_SOCKSPORT" | string %]
-		<input type="text" class="stdedit" name="pref_socks_port" id="pref_socks_port" value="[% prefs.pref_socks_port %]" size="4">
-
-	[% END %]
 	
 	[% WRAPPER setting title="PLUGIN_LCI_CACHE" desc="PLUGIN_LCI_CACHE_DESC" %]
 

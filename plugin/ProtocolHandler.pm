@@ -19,6 +19,7 @@ use Slim::Utils::Prefs;
 use Slim::Utils::Errno;
 use Slim::Utils::Cache;
 use Slim::Networking::Async::HTTP;
+use Slim::Web::ImageProxy;
 
 use Plugins::LCI::MPEGTS;
 use Plugins::LCI::API;
@@ -164,6 +165,7 @@ sub getNextTrack {
 	
 		sub {
 			my $fragments = shift;
+			my $bitrate = shift;
 			
 			return $errorCb->() unless (defined $fragments && scalar @$fragments);
 			
@@ -173,6 +175,7 @@ sub getNextTrack {
 			$song->pluginData(stream  => $server);
 			$song->pluginData(format  => 'aac');
 			$song->track->secs( $fragments->[scalar @$fragments - 1]->{position} );
+			$song->track->bitrate( $bitrate );
 			$class->getMetadataFor($client, $url, undef, $song);
 			
 			$successCb->();
@@ -295,21 +298,21 @@ sub getMasterM3U {
 		onBody  => sub {
 			my $m3u = shift->response->content;
 			my $slaveUrl;
-			my $bw;
+			my $bitrate;
 				
 			$log->debug("master M3U: $m3u");
 				
 			for my $item ( split (/#EXT-X-STREAM-INF:/, $m3u) ) {
 				next if $item !~ m/BANDWIDTH=(\d+)([^\n]+)\n(.*)/s;
-				if (!defined $bw || $1 < $bw) {
-					$bw = $1;
+				if (!defined $bitrate || $1 < $bitrate) {
+					$bitrate = $1;
 					$slaveUrl = $3;
 				} 	
 			}
 				
 			$log->info("slave M3U url: $base" . "$slaveUrl");
 	
-			getFragmentList($cb, $base . $slaveUrl);
+			getFragmentList($cb, $base . $slaveUrl, $bitrate);
 		},
 		
 		onError     => sub { $cb->( undef ); },
@@ -318,7 +321,7 @@ sub getMasterM3U {
 
 
 sub getFragmentList {
-	my ($cb, $url) = @_;
+	my ($cb, $url, $bitrate) = @_;
 	
 	Slim::Networking::SimpleAsyncHTTP->new ( 
 		sub {
@@ -334,7 +337,7 @@ sub getFragmentList {
 				push @fragments, { position => $position, url => $base . $2 } if $2;
 			}	
 														
-			$cb->(\@fragments);
+			$cb->(\@fragments, $bitrate);
 		},	
 			
 		sub {
@@ -360,7 +363,6 @@ sub suppressPlayersMessage {
 
 sub getMetadataFor {
 	my ($class, $client, $url, undef, $song) = @_;
-	my $image = Plugins::LCI::Plugin::getIcon();
 	my $cacheKey = md5_hex($url);
 	
 	main::DEBUGLOG && $log->debug("getmetadata: $url");
@@ -382,7 +384,6 @@ sub getMetadataFor {
 	my $page = '/pages/' . getLink($url);
 			
 	Plugins::LCI::API::search( $page, sub {
-		my @imageList;
 		my $data = shift->{page}->{data};
 		$data = first { $_->{key} eq 'main' } @{$data};
 		$data = first { $_->{key} eq 'article-header-video' } @{$data->{data}};
@@ -391,22 +392,21 @@ sub getMetadataFor {
 		my $title = $data->{title} || '';
 		my $duration => $data->{video}->{duration};
 		my $image = Plugins::LCI::Plugin::getImageMin( $data->{pictures}->{elementList} );
+		#$image = Slim::Web::ImageProxy::proxiedImage( $image, 1 );
+		#Slim::Web::ImageProxy->getImage($client, $image, undef, undef, undef, undef );
+		$image = undef;
 				
-		push @imageList, $image if defined $image;
-		#Plugins::LCI::Plugin::getImages(@imageList);
-	
 		$url =~ m/&artist=([^&]*)&album=(.*)/;
 		my ($artist, $album) = ($1, $2);
 				
 		$cache->set("lci:meta-$cacheKey", 
 				{ title  => $title,
-				  #icon 	 => $image || Plugins::LCI::Plugin::getIcon(),
-				  #cover  => $image || Plugins::LCI::Plugin::getIcon(),
-				  icon     => Plugins::LCI::Plugin::getIcon(),
-				  cover    => Plugins::LCI::Plugin::getIcon(),
+				  icon     => $image || Plugins::LCI::Plugin::getIcon(),
+				  cover    => $image || Plugins::LCI::Plugin::getIcon(),
 				  duration => $data->{video}->{duration},
 				  artist   => $artist,
 				  album    => $album,
+				  type     => 'LCI',
 				}, DEFAULT_CACHE_TTL ); 
 		
 		$song->track->secs($duration) if $song;
@@ -420,8 +420,8 @@ sub getMetadataFor {
 	return {	
 			type	=> 'LCI',
 			title	=> "LCI",
-			icon	=> $image,
-			cover	=> $image,
+			icon     => Plugins::LCI::Plugin::getIcon(),
+			cover    => Plugins::LCI::Plugin::getIcon(),
 	}	
 }	
 

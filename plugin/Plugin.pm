@@ -153,7 +153,6 @@ sub addChannels {
 	
 	Plugins::LCI::API::search( $page, sub {
 		my $items = [];
-		my @imageList;
 		my $result = shift;
 		my $data = $result->{page}->{data};
 		$data = first { $_->{key} eq 'main' } @{$data};
@@ -161,15 +160,15 @@ sub addChannels {
 		
 		for my $entry (@{$data->{data}->{elementList}}) {
 			my $image = getImageMin( $entry->{pictures}->{elementList} );
-			
-			push @imageList, $image if defined $image;
-							
+			#$image = Slim::Web::ImageProxy::proxiedImage( $image, 1 );
+			#Slim::Web::ImageProxy->getImage($client, $image, undef, undef, undef, undef );
+			$image = undef;
+														
 			push @$items, {
 				name  => $entry->{text},
 				type  => 'playlist',
 				url   => \&searchEpisodes,
-				#image 		=> $image || getIcon(),
-				image => getIcon(),
+				image 			=> $image || getIcon(),
 				passthrough 	=> [ { link => $entry->{link} } ],
 				favorites_url  	=> "lciplaylist://link=$entry->{link}",
 				favorites_type 	=> 'audio',
@@ -196,7 +195,6 @@ sub searchEpisodes {
 	Plugins::LCI::API::search( $page, sub {
 		my $result = shift;
 		my $items = [];
-		my @imageList;
 		my $text = $result->{page}->{title};
 												
 		$text =~ m/([^:]+)/;
@@ -220,21 +218,19 @@ sub searchEpisodes {
 		for my $entry (@list) {
 			my ($date) =  ($entry->{date} =~ m/(\S*)T/);
 			my $image = getImageMin( $entry->{pictures}->{elementList} );
+			#$image = Slim::Web::ImageProxy::proxiedImage( $image, 1 );
+			#Slim::Web::ImageProxy->getImage($client, $image, undef, undef, undef, undef );
+			$image = undef;
 						
-			push @imageList, $image if defined $image;
-								
 			push @$items, {
 				name 		=> $entry->{title},
 				type 		=> 'playlist',
 				on_select 	=> 'play',
 				play 		=> "lci:$entry->{link}&artist=$artist&album=$album",
-				#image 		=> $image || getIcon(),
-				image 		=> getIcon(),
+				image 		=> $image || getIcon(),
 			};
 		}
-		
-		#getImages(@imageList);
-		
+					
 		$cb->( $items );
 		
 	} );
@@ -251,7 +247,7 @@ sub getImageMin {
 	
 	my @images = sort { $a->{height} <=> $b->{height} } @{$list};
 	my @dpi = sort { $a->{size} <=> $b->{size} } @{$images[0]->{dpi}};
-	my $url = $dpi[0]->{url};
+	my $url = Encode::decode( 'utf-8', $dpi[0]->{url} );
 	
 	$log->debug($url);		
 	
