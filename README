@@ -1,3 +1,3 @@
 This Logitech Media Server (LMS) plugin allows the audio track of LCI/TF1 videos to be played on any Squeezebox. 
 
-It chooses the smallest video resolution (or audio only if availabe) to minimize bandwidth usage. Please note that the whole file may be streamed to the LMS server, not only the audio. SOCKS is supported for abroad usage
+It chooses the smallest video resolution (or audio only if availabe) to minimize bandwidth usage. Please note that the whole file may be streamed to the LMS server, not only the audio.
