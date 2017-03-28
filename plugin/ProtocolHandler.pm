@@ -19,7 +19,6 @@ use Slim::Utils::Prefs;
 use Slim::Utils::Errno;
 use Slim::Utils::Cache;
 use Slim::Networking::Async::HTTP;
-use Slim::Web::ImageProxy;
 
 use Plugins::LCI::MPEGTS;
 use Plugins::LCI::API;

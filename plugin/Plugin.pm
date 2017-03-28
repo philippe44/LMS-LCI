@@ -19,7 +19,6 @@ use Unicode::Normalize;
 use Slim::Utils::Strings qw(string cstring);
 use Slim::Utils::Prefs;
 use Slim::Utils::Log;
-use Slim::Web::ImageProxy;
 
 use Plugins::LCI::API;
 use Plugins::LCI::ProtocolHandler;
