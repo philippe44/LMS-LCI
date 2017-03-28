@@ -1,6 +1,7 @@
 ﻿0.2.0
  - search timeout is 3600 instead of 900
  - default sampling rate 48000
-
+ - do not parse MPEG buffer if empty
+ 
 0.1.0
  - first version

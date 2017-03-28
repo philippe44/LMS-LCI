@@ -138,7 +138,9 @@ sub sysread {
 		return undef;
 	}	
 				
-	my $len = Plugins::LCI::MPEGTS::processTS($v, \$_[1], $maxBytes);
+	my $len;
+	
+	$len = Plugins::LCI::MPEGTS::processTS($v, \$_[1], $maxBytes) if defined $v->{inBuf};
 			
 	return $len if $len;
 	
