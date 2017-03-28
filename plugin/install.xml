@@ -1,14 +1,14 @@
 <?xml version='1.0' standalone='yes'?>
 <extensions>
-  <icon>plugins/LCI/html/images/LCI.png</icon>
+  <name>PLUGIN_LCI</name>
   <targetApplication>
     <id>SlimServer</id>
     <maxVersion>7.*</maxVersion>
     <minVersion>7.7</minVersion>
   </targetApplication>
-  <description>PLUGIN_LCI_DESC</description>
-  <version>0.1.0</version>
-  <module>Plugins::LCI::Plugin</module>
-  <name>PLUGIN_LCI</name>
   <defaultState>enabled</defaultState>
+  <description>PLUGIN_LCI_DESC</description>
+  <icon>plugins/LCI/html/images/LCI.png</icon>
+  <version>0.2.0</version>
+  <module>Plugins::LCI::Plugin</module>
 </extensions>

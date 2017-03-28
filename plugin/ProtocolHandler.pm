@@ -175,6 +175,7 @@ sub getNextTrack {
 			$song->pluginData(format  => 'aac');
 			$song->track->secs( $fragments->[scalar @$fragments - 1]->{position} );
 			$song->track->bitrate( $bitrate );
+			$song->track->samplerate( 48000 );
 			$class->getMetadataFor($client, $url, undef, $song);
 			
 			$successCb->();

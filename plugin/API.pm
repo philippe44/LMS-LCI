@@ -41,7 +41,7 @@ sub search	{
 			
 			$result ||= {};
 			
-			$cache->set($cacheKey, $result, 900);
+			$cache->set($cacheKey, $result, 3600);
 			
 			$cb->($result);
 		},
