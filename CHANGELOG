@@ -1,4 +1,7 @@
-﻿0.2.0
+﻿0.3.0
+ - auto detect samplerate in ADTS (used when converting to PCM)
+ 
+0.2.0
  - search timeout is 3600 instead of 900
  - default sampling rate 48000
  - do not parse MPEG buffer if empty
