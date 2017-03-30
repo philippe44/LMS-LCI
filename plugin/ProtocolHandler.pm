@@ -175,13 +175,15 @@ sub getNextTrack {
 			$song->pluginData(format  => 'aac');
 			$song->track->secs( $fragments->[scalar @$fragments - 1]->{position} );
 			$song->track->bitrate( $bitrate );
-			$class->getMetadataFor($client, $url, undef, $song);
-			
+					
 			getSampleRate( $fragments->[0]->{url}, sub {
 							my $sampleRate = shift || 48000;
 							$song->track->samplerate( $sampleRate );
 							$successCb->();
 						} );
+						
+			$client->currentPlaylistUpdateTime( Time::HiRes::time() );
+			Slim::Control::Request::notifyFromArray( $client, [ 'newmetadata' ] );
 			
 		} , $link 
 		
@@ -406,7 +408,7 @@ sub suppressPlayersMessage {
 sub getMetadataFor {
 	my ($class, $client, $url, undef, $song) = @_;
 	my $cacheKey = md5_hex($url);
-	
+		
 	main::DEBUGLOG && $log->debug("getmetadata: $url");
 			
 	if ( my $meta = $cache->get("lci:meta-$cacheKey") ) {
@@ -419,10 +421,10 @@ sub getMetadataFor {
 		});
 
 		main::DEBUGLOG && $log->debug("cache hit: $url");
-			
+		
 		return $meta;
-	}
-	
+	} 
+
 	my $page = '/pages/' . getLink($url);
 			
 	Plugins::LCI::API::search( $page, sub {
@@ -430,7 +432,7 @@ sub getMetadataFor {
 		$data = first { $_->{key} eq 'main' } @{$data};
 		$data = first { $_->{key} eq 'article-header-video' } @{$data->{data}};
 		$data = $data->{data};
-				
+			
 		my $title = $data->{title} || '';
 		my $duration => $data->{video}->{duration};
 		my $image;
@@ -442,28 +444,28 @@ sub getMetadataFor {
 				
 		$cache->set("lci:meta-$cacheKey", 
 				{ title  => $title,
-				  icon     => $image || Plugins::LCI::Plugin::getIcon(),
-				  cover    => $image || Plugins::LCI::Plugin::getIcon(),
-				  duration => $data->{video}->{duration},
-				  artist   => $artist,
-				  album    => $album,
-				  type     => 'LCI',
+				icon     => $image || Plugins::LCI::Plugin::getIcon(),
+				cover    => $image || Plugins::LCI::Plugin::getIcon(),
+				duration => $data->{video}->{duration},
+				artist   => $artist,
+				album    => $album,
+				type     => 'LCI',
 				}, DEFAULT_CACHE_TTL ); 
 		
 		$song->track->secs($duration) if $song;
-				
+		
 		if ($client) {
 			$client->currentPlaylistUpdateTime( Time::HiRes::time() );
 			Slim::Control::Request::notifyFromArray( $client, [ 'newmetadata' ] );
-		}			
+		}	
+		
 	} );		
-	
-	return {	
-			type	=> 'LCI',
-			title	=> "LCI",
-			icon     => Plugins::LCI::Plugin::getIcon(),
-			cover    => Plugins::LCI::Plugin::getIcon(),
-	}	
+		
+	return { type	=> 'LCI',
+			   title	=> "LCI",
+			   icon     => Plugins::LCI::Plugin::getIcon(),
+			   cover    => Plugins::LCI::Plugin::getIcon(),
+			};
 }	
 
 	
