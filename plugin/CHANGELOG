@@ -1,4 +1,7 @@
-﻿0.3.0
+﻿0.4.0
+ - force metadata update so that bitrate is displayed automatically
+ 
+0.3.0
  - auto detect samplerate in ADTS (used when converting to PCM)
  
 0.2.0
