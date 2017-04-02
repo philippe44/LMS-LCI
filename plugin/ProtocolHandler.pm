@@ -4,15 +4,11 @@ use base qw(IO::Handle);
 use strict;
 
 use List::Util qw(min max first);
-use HTML::Parser;
-use URI::Escape;
-use Scalar::Util qw(blessed);
 use JSON::XS;
 use Data::Dumper;
 use Digest::MD5 qw(md5 md5_hex md5_base64);
 use MIME::Base64;
 use Encode qw(encode decode find_encoding);
-use LWP;
 
 use Slim::Utils::Log;
 use Slim::Utils::Prefs;
@@ -36,7 +32,6 @@ sub new {
 	my $args  = shift;
 	my $song  = $args->{'song'};
 	my $index = 0;
-	my ($server, $port) = Slim::Utils::Misc::crackURL(@{$song->pluginData('streams')}[0]->{url});
 	my $seekdata   = $song->can('seekdata') ? $song->seekdata : $song->{'seekdata'};
 		
 	if ( my $newtime = $seekdata->{'timeOffset'} ) {
@@ -173,7 +168,6 @@ sub getNextTrack {
 			$song->pluginData(streams => $fragments);	
 			$song->pluginData(stream  => $server);
 			$song->pluginData(format  => 'aac');
-			$song->track->secs( $fragments->[scalar @$fragments - 1]->{position} );
 			$song->track->bitrate( $bitrate );
 					
 			getSampleRate( $fragments->[0]->{url}, sub {
@@ -185,7 +179,7 @@ sub getNextTrack {
 			$client->currentPlaylistUpdateTime( Time::HiRes::time() );
 			Slim::Control::Request::notifyFromArray( $client, [ 'newmetadata' ] );
 			
-		} , $link 
+		} , $link, $song 
 		
 	);
 }	
@@ -230,9 +224,11 @@ sub getSampleRate {
 
 
 sub getFragments {
-	my ($cb, $link) = @_;
+	my ($cb, $link, $song) = @_;
 	my $url = Plugins::LCI::API::API_URL . "/pages/$link?device=ios-smartphone" ;
 	my $params;
+	
+	$log->error("URL: $url");
 			
 	# get the watId	
 	Slim::Networking::SimpleAsyncHTTP->new ( 
@@ -243,6 +239,7 @@ sub getFragments {
 				$data = first { $_->{key} eq 'main' } @{$data};
 				$data = first { $_->{key} eq 'article-header-video' } @{$data->{data}};
 				$params->{watId} = $data->{data}->{video}->{watId};
+				$song->track->secs( $data->{data}->{video}->{duration} );
 				
 				$log->info("watId: $params->{watId}");
 				
@@ -393,27 +390,14 @@ sub getFragmentList {
 }
 
 
-sub suppressPlayersMessage {
-	my ($class, $client, $song, $string) = @_;
-
-	# suppress problem opening message if we have more streams to try
-	if ($string eq 'PROBLEM_OPENING' && scalar @{$song->pluginData('streams') || []}) {
-		return 1;
-	}
-
-	return undef;
-}
-
-
 sub getMetadataFor {
-	my ($class, $client, $url, undef, $song) = @_;
+	my ($class, $client, $url) = @_;
 	my $cacheKey = md5_hex($url);
 		
 	main::DEBUGLOG && $log->debug("getmetadata: $url");
 			
 	if ( my $meta = $cache->get("lci:meta-$cacheKey") ) {
-		$song->track->secs($meta->{'duration'}) if $song;
-				
+					
 		Plugins::LCI::Plugin->updateRecentlyPlayed({
 			url   => $url, 
 			name  => $meta->{title}, 
@@ -451,8 +435,6 @@ sub getMetadataFor {
 				album    => $album,
 				type     => 'LCI',
 				}, DEFAULT_CACHE_TTL ); 
-		
-		$song->track->secs($duration) if $song;
 		
 		if ($client) {
 			$client->currentPlaylistUpdateTime( Time::HiRes::time() );
