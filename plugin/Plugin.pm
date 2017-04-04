@@ -113,7 +113,7 @@ sub toplevel {
 	addChannels($client, sub {
 			my $items = shift;
 			
-			push @$items, { name => cstring($client, 'PLUGIN_LCI_RECENTLYPLAYED'), image => getIcon(), url  => \&recentHandler };
+			unshift @$items, { name => cstring($client, 'PLUGIN_LCI_RECENTLYPLAYED'), image => getIcon(), url  => \&recentHandler };
 			
 			$callback->( $items );
 		}, $args
