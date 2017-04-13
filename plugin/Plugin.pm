@@ -217,10 +217,13 @@ sub searchEpisodes {
 			my ($date) =  ($entry->{date} =~ m/(\S*)T/);
 			my $image;
 			
+			$title = $1 if $entry->{title} =~ m/-(.*)-/;
+			$title ||= $entry->{title};
+			
 			$image = getImageMin( $entry->{pictures}->{elementList} ) if $prefs->get('icons');
 									
 			push @$items, {
-				name 		=> $entry->{title},
+				name 		=> $title,
 				type 		=> 'playlist',
 				on_select 	=> 'play',
 				play 		=> "lci:$entry->{link}&artist=$artist&album=$album",

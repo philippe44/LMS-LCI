@@ -1,4 +1,7 @@
-﻿0.6.0
+﻿0.7.0
+ - Better extract of title using /-(.*)-/
+ 
+0.6.0
  - Recently played put at the beginning of channel list
  
 0.5.1
