@@ -216,6 +216,7 @@ sub searchEpisodes {
 		for my $entry (@list) {
 			my ($date) =  ($entry->{date} =~ m/(\S*)T/);
 			my $image;
+			my $title;
 			
 			$title = $1 if $entry->{title} =~ m/-(.*)-/;
 			$title ||= $entry->{title};
