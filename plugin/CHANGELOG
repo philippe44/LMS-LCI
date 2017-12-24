@@ -1,4 +1,7 @@
-﻿0.7.0
+﻿0.7.1
+ - Add "settings" link in plugin page
+ 
+0.7.0
  - Better extract of title using /-(.*)-/
  
 0.6.0
