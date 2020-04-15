@@ -33,8 +33,11 @@ sub new {
 	my $song  = $args->{'song'};
 	my $index = 0;
 	my $seekdata   = $song->can('seekdata') ? $song->seekdata : $song->{'seekdata'};
+	
+	# erase last position from cache
+	$cache->remove("lci:lastpos-" . getLink($args->{'url'}));
 		
-	if ( my $newtime = $seekdata->{'timeOffset'} ) {
+	if ( my $newtime = ($seekdata->{'timeOffset'} || $song->pluginData('lastpos')) ) {
 		my $streams = \@{$args->{song}->pluginData('streams')};
 		
 		$index = first { $streams->[$_]->{position} >= int $newtime } 0..scalar @$streams;
@@ -57,6 +60,19 @@ sub new {
 	}
 
 	return $self;
+}
+
+sub onStop {
+    my ($class, $song) = @_;
+	my $elapsed = $song->master->controller->playingSongElapsed;
+	my $id = getLink($song->track->url);
+	
+	if ($elapsed < $song->duration - 15) {
+		$cache->set("lci:lastpos-$id", int ($elapsed), '30days');
+		$log->info("Last position for $id is $elapsed");
+	} else {
+		$cache->remove("lci:lastpos-$id");
+	}	
 }
 
 sub contentType { 'aac' }
@@ -146,7 +162,11 @@ sub getNextTrack {
 	my ($class, $song, $successCb, $errorCb) = @_;
 	my $url 	 = $song->track()->url;
 	my $client   = $song->master();
-	my $link	 = getLink($url);
+
+	$song->pluginData(lastpos => ($url =~ /&lastpos=([\d]+)/)[0] || 0);
+	$url =~ s/&lastpos=[\d]*//;					
+	
+	my $link = getLink($url);
 	
 	$log->info("getNextTrack : $url (link: $link)");
 	
@@ -392,9 +412,11 @@ sub getFragmentList {
 
 sub getMetadataFor {
 	my ($class, $client, $url) = @_;
-	my $cacheKey = md5_hex($url);
-		
+	
 	main::DEBUGLOG && $log->debug("getmetadata: $url");
+	
+	$url =~ s/&lastpos=[\d]*//;					
+	my $cacheKey = md5_hex($url);
 			
 	if ( my $meta = $cache->get("lci:meta-$cacheKey") ) {
 					

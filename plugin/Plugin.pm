@@ -68,8 +68,7 @@ sub initPlugin {
 #        |  |  |  |Function to call
 	Slim::Control::Request::addDispatch(['LCI', 'info'], 
 		[1, 1, 1, \&cliInfoQuery]);
-		
-	
+			
 }
 
 sub shutdownPlugin {
@@ -129,17 +128,38 @@ sub getIcon {
 
 sub recentHandler {
 	my ($client, $callback, $args) = @_;
-
 	my @menu;
 
 	for my $item(reverse values %recentlyPlayed) {
-		unshift  @menu, {
-			name => $item->{'name'},
-			play => $item->{'url'},
-			on_select => 'play',
-			image => $item->{'icon'},
-			type => 'playlist',
-		};
+		my $id = Plugins::LCI::ProtocolHandler::getLink($item->{'url'});
+		
+		if (my $lastpos = $cache->get("lci:lastpos-$id")) {
+			my $position = Slim::Utils::DateTime::timeFormat($lastpos);
+			$position =~ s/^0+[:\.]//;
+				
+			unshift  @menu, {
+				name => $item->{'name'},
+				image => $item->{'icon'},
+				type => 'link',
+				items => [ {
+						title => cstring(undef, 'PLUGIN_LCI_PLAY_FROM_BEGINNING'),
+						type   => 'audio',
+						url    => $item->{'url'},
+					}, {
+						title => cstring(undef, 'PLUGIN_LCI_PLAY_FROM_POSITION_X', $position),
+						type   => 'audio',
+						url    => $item->{'url'} . "&lastpos=$lastpos",
+					} ],
+				};
+		} else {		
+			unshift  @menu, {
+				name => $item->{'name'},
+				play => $item->{'url'},
+				on_select => 'play',
+				image => $item->{'icon'},
+				type => 'playlist',
+			};
+		}	
 	}
 
 	$callback->({ items => \@menu });
@@ -222,15 +242,35 @@ sub searchEpisodes {
 			$title ||= $entry->{title};
 			
 			$image = getImageMin( $entry->{pictures}->{elementList} ) if $prefs->get('icons');
-									
-			push @$items, {
-				name 		=> $title,
-				type 		=> 'playlist',
-				on_select 	=> 'play',
-				play 		=> "lci:$entry->{link}&artist=$artist&album=$album",
-				image 		=> $image || getIcon(),
-			};
-		}
+			
+			if (my $lastpos = $cache->get("lci:lastpos-" . $entry->{link})) {
+				my $position = Slim::Utils::DateTime::timeFormat($lastpos);
+				$position =~ s/^0+[:\.]//;
+				
+				push @$items, {
+					name 		=> $title,
+					type 		=> 'link',
+					image 		=> $image || getIcon(),
+					items => [ {
+						title => cstring(undef, 'PLUGIN_LCI_PLAY_FROM_BEGINNING'),
+						type   => 'audio',
+						url    => "lci:$entry->{link}&artist=$artist&album=$album",
+					}, {
+						title => cstring(undef, 'PLUGIN_LCI_PLAY_FROM_POSITION_X', $position),
+						type   => 'audio',
+						url    => "lci:$entry->{link}&artist=$artist&album=$album&lastpos=$lastpos",
+					} ],
+				};
+			} else {
+				push @$items, {
+					name 		=> $title,
+					type 		=> 'playlist',
+					on_select 	=> 'play',
+					play 		=> "lci:$entry->{link}&artist=$artist&album=$album",
+					image 		=> $image || getIcon(),
+				};
+			}
+		}	
 					
 		$cb->( $items );
 		
