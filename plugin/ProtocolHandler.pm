@@ -40,7 +40,7 @@ sub new {
 	$log->debug("params ", Data::Dump::dump($params));
 	
 	# erase last position from cache
-	$cache->remove('lci:lastpos-' . md5_hex($args->{'url'}));
+	$cache->remove('lci:lastpos-' . $args->{'url'});
 	
 	if ( my $newtime = ($seekdata->{'timeOffset'} || $song->pluginData('lastpos')) ) {
 		if (my $segments = $song->pluginData('segments')) {
@@ -322,11 +322,10 @@ sub getNextTrack {
 		$song->track->channels( $params->{channels} ); 
 		#$song->track->bitrate(  );
 		
-		my $cacheKey = md5_hex($url);
-		if ( my $meta = $cache->get("lci:meta-$cacheKey") ) {
+		if ( my $meta = $cache->get("lci:meta-$url") ) {
 			$meta->{duration} = $duration;
 			$meta->{type} = "aac\@$params->{samplingRate}Hz";
-			$cache->set("lci:meta-$cacheKey", $meta);
+			$cache->set("lci:meta-$url", $meta);
 		}	
 		
 		$client->currentPlaylistUpdateTime( Time::HiRes::time() );
@@ -346,10 +345,10 @@ sub getMetadataFor {
 	
 	main::DEBUGLOG && $log->debug("getmetadata: $url");
 	
-	$url =~ s/&lastpos=[\d]*//;					
-	my $cacheKey = md5_hex($url);
+	$url = getLink($url);
+	my $meta = $cache->get("lci:meta-$url");
 			
-	if ( my $meta = $cache->get("lci:meta-$cacheKey") ) {
+	if ( $meta && defined $meta->{duration} ) {
 					
 		Plugins::LCI::Plugin->updateRecentlyPlayed({
 			url   => $url, 
@@ -362,33 +361,24 @@ sub getMetadataFor {
 		return $meta;
 	} 
 
-	my $page = '/pages' . getLink($url);
+	my $page = '/pages' . $url;
 			
 	Plugins::LCI::API::search( $page, sub {
 		my $data = shift->{page};
+
 		$data = first { $_->{key} eq 'main' } @{$data->{data}};
 		$data = first { $_->{key} eq 'body-header' } @{$data->{data}};
 		$data = first { $_->{key} eq 'article-header-video' } @{$data->{data}};
 		$data = $data->{data};
 			
-		my $title = $data->{title} || '';
-		my $duration => $data->{video}->{duration};
-		my $image;
+		my $image = Plugins::LCI::Plugin::getImageMin( $data->{pictures}->{elementList} ) if $prefs->get('icons');
 		
-		$image = Plugins::LCI::Plugin::getImageMin( $data->{pictures}->{elementList} ) if $prefs->get('icons');
-		
-		$url =~ m/&artist=([^&]*)&album=(.*)/;
-		my ($artist, $album) = ($1, $2);
-				
-		$cache->set("lci:meta-$cacheKey", 
-				{ title  => $title,
-				icon     => $image || Plugins::LCI::Plugin::getIcon(),
-				cover    => $image || Plugins::LCI::Plugin::getIcon(),
-				duration => $data->{video}->{duration},
-				artist   => $artist,
-				album    => $album,
-				type     => 'LCI',
-				}, DEFAULT_CACHE_TTL ); 
+		$meta->{title} = $data->{title} || '';
+		$meta->{icon} = $meta->{cover} = $image || Plugins::LCI::Plugin::getIcon();
+		$meta->{duration} = $data->{video}->{duration};
+		$meta->{type} = 'LCI';
+
+		$cache->set("lci:meta-$url", $meta);
 		
 		if ($client) {
 			$client->currentPlaylistUpdateTime( Time::HiRes::time() );

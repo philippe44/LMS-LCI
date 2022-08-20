@@ -208,7 +208,6 @@ sub addChannels {
 	} );	
 }	
 	
-
 sub searchEpisodes {
 	my ($client, $cb, $args, $params) = @_;
 	my $page = "/pages$params->{link}";
@@ -226,12 +225,18 @@ sub searchEpisodes {
 
 		for my $entry (@{$data->{data}->{elementList}}) {		
 			my ($date) =  ($entry->{date} =~ m/(\S*)T/);
-			my $image;
-			my $title;
+			my $image = getImageMin( $entry->{pictures}->{elementList} ) if $prefs->get('icons');	
 			
+			my $title;
 			$title = $1 if $entry->{title} =~ m/-(.*)-/;
 			$title ||= $entry->{title};
-			$image = getImageMin( $entry->{pictures}->{elementList} ) if $prefs->get('icons');
+			
+			my $meta = $cache->get("lci:meta-$entry->{link}");
+			unless (defined $meta->{artist}) {
+				$meta->{artist} = $params->{artist};
+				$meta->{album} = $params->{album};
+				$cache->set("lci:meta-$entry->{link}", $meta);
+			}	
 			
 			if (my $lastpos = $cache->get("lci:lastpos-" . $entry->{link})) {
 				my $position = Slim::Utils::DateTime::timeFormat($lastpos);
@@ -244,11 +249,11 @@ sub searchEpisodes {
 					items => [ {
 						title => cstring(undef, 'PLUGIN_LCI_PLAY_FROM_BEGINNING'),
 						type   => 'audio',
-						url    => "lci:$entry->{link}&artist=$params->{artist}&album=$params->{album}",
+						url    => "lci:$entry->{link}",
 					}, {
 						title => cstring(undef, 'PLUGIN_LCI_PLAY_FROM_POSITION_X', $position),
 						type   => 'audio',
-						url    => "lci:$entry->{link}&artist=$params->{artist}&album=$params->{album}&lastpos=$lastpos",
+						url    => "lci:$entry->{link}&lastpos=$lastpos",
 					} ],
 				};
 			} else {
@@ -256,7 +261,7 @@ sub searchEpisodes {
 					name 		=> $title,
 					type 		=> 'playlist',
 					on_select 	=> 'play',
-					play 		=> "lci:$entry->{link}&artist=$params->{artist}&album=$params->{album}",
+					play 		=> "lci:$entry->{link}",
 					image 		=> $image || getIcon(),
 				};
 			}
@@ -276,8 +281,6 @@ sub getImageMin {
 	# We have an  images array. Each image array contains different height. 
 	my @images = sort { $a->{height} <=> $b->{height} } @{$list};
 	my $url = Encode::decode( 'utf-8', $images[0]->{url} );
-	
-	$log->debug($url);		
 	
 	return $url;
 }

@@ -28,7 +28,7 @@ sub search	{
 	
 	if ( !$prefs->get('no_cache') && ($cached = $cache->get($cacheKey)))  {
 		main::INFOLOG && $log->info("Returning cached data for: $url");
-		$cb->($cached);
+		$cb->($cached, 1);
 		return;
 	}
 
