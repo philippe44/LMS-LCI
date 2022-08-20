@@ -1,4 +1,8 @@
-﻿0.9.0
+﻿0.10.0
+ - new API used by TF1
+ - use DASH/MPD instead of HLS
+
+0.9.0
  - memorize position
  
 0.8.0

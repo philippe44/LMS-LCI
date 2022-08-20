@@ -12,7 +12,6 @@ use List::Util qw(min max first);
 use FindBin qw($Bin);
 use lib catdir($Bin, 'Plugins', 'LCI', 'lib');
 
-use Data::Dumper;
 use Encode qw(encode decode);
 use Unicode::Normalize;
 
@@ -173,9 +172,11 @@ sub addChannels {
 	Plugins::LCI::API::search( $page, sub {
 		my $items = [];
 		my $result = shift;
-		my $data = $result->{page}->{data};
-		$data = first { $_->{key} eq 'main' } @{$data};
-		$data = first { $_->{key} eq 'emission-milestone' } @{$data->{data}};
+		my $data = $result->{page};
+		
+		$data = first { $_->{key} eq 'main' } @{$data->{data}};
+		$data = first { $_->{key} eq 'body' } @{$data->{data}};
+		$data = first { $_->{key} eq 'program-list' } @{$data->{data}};
 		
 		for my $entry (@{$data->{data}->{elementList}}) {
 			my $image;
@@ -183,11 +184,15 @@ sub addChannels {
 			$image = getImageMin( $entry->{pictures}->{elementList} ) if $prefs->get('icons');
 														
 			push @$items, {
-				name  => $entry->{text},
+				name  => $entry->{title},
 				type  => 'playlist',
 				url   => \&searchEpisodes,
 				image 			=> $image || getIcon(),
-				passthrough 	=> [ { link => $entry->{link} } ],
+				passthrough 	=> [ { 
+					link => $entry->{link},
+					artist => $entry->{channel},
+					album => $entry->{title},
+				} ],
 				favorites_url  	=> "lciplaylist://link=$entry->{link}",
 				favorites_type 	=> 'audio',
 			};
@@ -213,34 +218,19 @@ sub searchEpisodes {
 	Plugins::LCI::API::search( $page, sub {
 		my $result = shift;
 		my $items = [];
-		my $text = $result->{page}->{title};
-												
-		$text =~ m/([^:]+)/;
-		my $album = $1 || '';
-		$album =~ s/^\s+|\s+$//g;
+		my $data = $result->{page};
 		
-		$text =~ m/.+mission de([[:ascii:]]+)/;
-		my $artist = $1;
-		$artist =~ m/(.*)-/;
-		$artist = $1 || '';
-		$artist =~ s/^\s+|\s+$//g;
-		
-		my $data = $result->{page}->{data};
-		$data = first { $_->{key} eq 'main' } @{$data};
-		$data = first { $_->{key} eq 'topic-emission-extract' } @{$data->{data}};
-			
-		my @list = grep { $_->{type} =~ 'catchup' } @{$data->{data}->{elementList}};
-		unshift @list, $data->{data} if ($data->{data}->{type} =~ 'catchup');
-		@list = sort {lc($b->{date}) cmp lc($a->{date})} @list;
-						
-		for my $entry (@list) {
+		$data = first { $_->{key} eq 'main' } @{$data->{data}};
+		$data = first { $_->{key} eq 'body' } @{$data->{data}};
+		$data = first { $_->{key} eq 'program-video-list' } @{$data->{data}};
+
+		for my $entry (@{$data->{data}->{elementList}}) {		
 			my ($date) =  ($entry->{date} =~ m/(\S*)T/);
 			my $image;
 			my $title;
 			
 			$title = $1 if $entry->{title} =~ m/-(.*)-/;
 			$title ||= $entry->{title};
-			
 			$image = getImageMin( $entry->{pictures}->{elementList} ) if $prefs->get('icons');
 			
 			if (my $lastpos = $cache->get("lci:lastpos-" . $entry->{link})) {
@@ -254,11 +244,11 @@ sub searchEpisodes {
 					items => [ {
 						title => cstring(undef, 'PLUGIN_LCI_PLAY_FROM_BEGINNING'),
 						type   => 'audio',
-						url    => "lci:$entry->{link}&artist=$artist&album=$album",
+						url    => "lci:$entry->{link}&artist=$params->{artist}&album=$params->{album}",
 					}, {
 						title => cstring(undef, 'PLUGIN_LCI_PLAY_FROM_POSITION_X', $position),
 						type   => 'audio',
-						url    => "lci:$entry->{link}&artist=$artist&album=$album&lastpos=$lastpos",
+						url    => "lci:$entry->{link}&artist=$params->{artist}&album=$params->{album}&lastpos=$lastpos",
 					} ],
 				};
 			} else {
@@ -266,10 +256,11 @@ sub searchEpisodes {
 					name 		=> $title,
 					type 		=> 'playlist',
 					on_select 	=> 'play',
-					play 		=> "lci:$entry->{link}&artist=$artist&album=$album",
+					play 		=> "lci:$entry->{link}&artist=$params->{artist}&album=$params->{album}",
 					image 		=> $image || getIcon(),
 				};
 			}
+
 		}	
 					
 		$cb->( $items );
@@ -283,12 +274,8 @@ sub getImageMin {
 	return undef if !defined $list;
 	
 	# We have an  images array. Each image array contains different height. 
-	# Then each height contains different dpi. Need to take smallest of all.
-	# They might already be sorted, but can't count on that.
-	
 	my @images = sort { $a->{height} <=> $b->{height} } @{$list};
-	my @dpi = sort { $a->{size} <=> $b->{size} } @{$images[0]->{dpi}};
-	my $url = Encode::decode( 'utf-8', $dpi[0]->{url} );
+	my $url = Encode::decode( 'utf-8', $images[0]->{url} );
 	
 	$log->debug($url);		
 	

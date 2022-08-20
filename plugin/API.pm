@@ -5,7 +5,6 @@ use strict;
 use Digest::MD5 qw(md5_hex);
 use JSON::XS::VersionOneAndTwo;
 use List::Util qw(min max first);
-use Data::Dumper;
 
 use Slim::Utils::Cache;
 use Slim::Utils::Log;
@@ -13,7 +12,7 @@ use Slim::Utils::Prefs;
 	
 use Slim::Networking::Async::HTTP;
 
-use constant API_URL => "http://api.lci.fr";
+use constant API_URL => "http://api.tf1info.fr";
 
 my $prefs = preferences('plugin.LCI');
 my $log   = logger('plugin.LCI');
@@ -49,7 +48,7 @@ sub search	{
 		sub {
 			$log->error($_[1]);
 			$cb->( { error => $_[1] } );
-		}
+		},
 
 	)->get($url);
 			
