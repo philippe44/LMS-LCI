@@ -1,4 +1,7 @@
-﻿0.10.0
+﻿0.10.1
+ - why missing an opportunity to be a pain on versioning 
+ 
+0.10.0
  - new API used by TF1
  - use DASH/MPD instead of HLS
 
